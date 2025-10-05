@@ -1,9 +1,7 @@
-const tap = require('tap');
-const DrupalAttribute = require('../src');
+import {DrupalAttribute} from "../../main/index.mjs";
+import tape from "tape";
 
-tap.test('removeClass', function(test) {
-  test.plan(4);
-
+tape('removeClass', function(test) {
   test.test('should support method chaining', function(test) {
     let attribute = new DrupalAttribute();
 
@@ -44,6 +42,18 @@ tap.test('removeClass', function(test) {
     ;
 
     test.notOk(attribute.get('class'));
+    test.end();
+  });
+
+  test.test('should support being called on a unregistered class', function (test) {
+    let attribute = new DrupalAttribute();
+
+    attribute
+      .addClass('foo')
+      .removeClass('bar')
+    ;
+
+    test.same(attribute.get('class'), ['foo']);
     test.end();
   });
 });

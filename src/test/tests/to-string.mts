@@ -1,9 +1,7 @@
-const tap = require('tap');
-const DrupalAttributes = require('../src');
+import {DrupalAttribute as DrupalAttributes} from "../../main/index.mjs";
+import tape from "tape";
 
-tap.test('toString', function(test) {
-  test.plan(3);
-
+tape('toString', function(test) {
   test.test('should return an empty string when no attribute has been set', function (test) {
     let attribute = new DrupalAttributes();
 

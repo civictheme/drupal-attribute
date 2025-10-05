@@ -1,23 +1,14 @@
 {
-  "name": "drupal-attribute",
-  "version": "1.1.0",
-  "description": "Drupal Attribute emulated in JavaScript",
-  "main": "src/index.js",
   "scripts": {
-    "pretest": "npm prune && npm update",
-    "test": "tap test/*.js --cov --reporter=spec --100"
+    "build:main": "(cd src/main && rollup -c)",
+    "build:test": "(cd src/test && rollup -c)",
+    "test": "node src/test/target/index.mjs"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ericmorand/drupal-attribute.git"
-  },
-  "author": "Eric MORAND",
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/ericmorand/drupal-attribute/issues"
-  },
-  "homepage": "https://github.com/ericmorand/drupal-attribute#readme",
-  "devDependencies": {
-    "tap": "^10.3.0"
+  "dependencies": {
+    "@nightlycommit/rollup-plugin-package-manifest": "^1.0.0-alpha.2",
+    "@types/node": "^16.18.126",
+    "@types/tape": "^5.8.1",
+    "@vitrail/rollup-plugin-typescript": "^1.0.4-beta.0",
+    "tape": "^5.9.0"
   }
 }

@@ -1,0 +1,12 @@
+sources = [
+  "src/main/**/*.mts"
+]
+
+excludedSources = [
+  "src/main/target/**"
+]
+
+reporters = [
+  "text",
+  "html"
+]
