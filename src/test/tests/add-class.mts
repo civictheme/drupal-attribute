@@ -1,9 +1,7 @@
-const tap = require('tap');
-const DrupalAttribute = require('../src');
+import {DrupalAttribute} from "../../main/index.mjs";
+import tape from "tape";
 
-tap.test('addClass', function(test) {
-  test.plan(6);
-
+tape('addClass', function(test) {
   test.test('should support method chaining', function(test) {
     let attribute = new DrupalAttribute();
 
@@ -48,7 +46,7 @@ tap.test('addClass', function(test) {
     let attribute = new DrupalAttribute();
 
     attribute
-      .addClass('foo', 'bar', ['foo-bar'])
+      .addClass('foo', 'bar', ['foo-bar', null, undefined], null, undefined)
     ;
 
     test.same(attribute.get('class'), ['foo', 'bar', 'foo-bar']);

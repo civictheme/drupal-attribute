@@ -1,9 +1,7 @@
-const tap = require('tap');
-const DrupalAttribute = require('../src');
+import {DrupalAttribute} from "../../main/index.mjs";
+import tape from "tape";
 
-tap.test('constructor', function (test) {
-  test.plan(2);
-
+tape('constructor', function (test) {
   test.test('should support being passed no parameter', function (test) {
     let attribute = new DrupalAttribute();
 

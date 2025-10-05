@@ -1,18 +1,98 @@
 # drupal-attribute
 
-[![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][daviddm-image]][daviddm-url] [![Coverage percentage][coveralls-image]][coveralls-url]
+[![NPM version][npm-image]][npm-url] [![Coverage percentage][coveralls-image]][coveralls-url]
 
-Emulate [Drupal Attribute](https://api.drupal.org/api/drupal/core!lib!Drupal!Core!Template!Attribute.php/class/Attribute) in JavaScript.
+This is not [drupal-attribute](https://npmjs.org/package/drupal-attribute). This is the _project_ behind [drupal-attribute](https://npmjs.org/package/drupal-attribute).
 
-## Why would I need this?
+## Prerequisites
 
-If you're wondering, you probably don't need this.
+* Node.js 16 and above
+* [Rollup](https://www.npmjs.com/package/rollup) installed globally
+
+It is also recommended to have the following tools installed globally to ease the writing of tests and the tracking of the code coverage:
+
+* [odz](https://www.npmjs.com/package/one-double-zero)
+* [tsx](https://www.npmjs.com/package/tsx)
 
 ## Installation
 
-```bash
-npm install drupal-attribute
+The project can be installed by running the following command:
+
+```shell
+npm install
 ```
+
+## Usage
+
+### Build the test suite
+
+```shell
+npm run build:test
+```
+
+This command outputs the test suite to the directory `src/test/target`.
+
+### Execute the test suite
+
+The test suite can be executed by running the following command:
+
+```shell
+node src/test/target/index.mjs
+```
+
+Or, for convenience:
+
+```shell
+npm t
+```
+
+### Build the main artifact
+
+The main artifact can be built by running the following command:
+
+```shell
+npm run build:main
+```
+
+This command outputs the main artifact to the directory `src/main/target`, under version `SNAPSHOT`.
+
+The version can be provided by populating the `VERSION` environment variable accordingly:
+
+```shell
+VERSION=1.2.3 npm run build:main
+```
+
+### Writing and executing tests
+
+Assuming one want to execute the test located in `src/test/foo/bar.ts`, one would run:
+
+```shell
+tsx src/test/foo/bar.ts
+```
+
+It is even possible - and recommended - to track the coverage while writing tests:
+
+```shell
+odz tsx src/test/foo/bar.ts
+```
+
+Of course, it is also perfectly possible to pipe the result of the test to your favorite tap formatter:
+
+```shell
+src/test/foo$ tsx bar.ts | tap-nyan
+ 9   -_-_-_-_-_,------,
+ 0   -_-_-_-_-_|   /\_/\ 
+ 0   -_-_-_-_-^|__( ^ .^) 
+     -_-_-_-_-  ""  "" 
+  Pass!
+```
+
+## Contributing
+
+* Fork this repository
+* Code
+* Implement tests using [tape](https://github.com/substack/tape)
+* Issue a pull request keeping in mind that all pull requests must reference an issue in the issue queue
 
 ## License
 
@@ -20,9 +100,5 @@ Apache-2.0 © [Eric MORAND]()
 
 [npm-image]: https://badge.fury.io/js/drupal-attribute.svg
 [npm-url]: https://npmjs.org/package/drupal-attribute
-[travis-image]: https://travis-ci.org/ericmorand/drupal-attribute.svg?branch=master
-[travis-url]: https://travis-ci.org/ericmorand/drupal-attribute
-[daviddm-image]: https://david-dm.org/ericmorand/drupal-attribute.svg?theme=shields.io
-[daviddm-url]: https://david-dm.org/ericmorand/drupal-attribute
-[coveralls-image]: https://coveralls.io/repos/github/ericmorand/drupal-attribute/badge.svg
-[coveralls-url]: https://coveralls.io/github/ericmorand/drupal-attribute
+[coveralls-image]: https://coveralls.io/repos/gitlab/nightlycommit/drupal-attribute/badge.svg
+[coveralls-url]: https://coveralls.io/gitlab/nightlycommit/drupal-attribute

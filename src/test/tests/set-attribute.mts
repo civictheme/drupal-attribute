@@ -1,9 +1,7 @@
-const tap = require('tap');
-const DrupalAttribute = require('../src');
+import {DrupalAttribute} from "../../main/index.mjs";
+import tape from "tape";
 
-tap.test('setAttribute', function (test) {
-  test.plan(7);
-
+tape('setAttribute', function (test) {
   test.test('should support method chaining', function (test) {
     let attribute = new DrupalAttribute();
 
