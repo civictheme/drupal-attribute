@@ -186,3 +186,6 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     return target;
   }
 }
+
+// Provide a default export for compatibility with legacy consumers and tooling.
+export default DrupalAttribute;
