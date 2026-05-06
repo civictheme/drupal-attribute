@@ -115,8 +115,9 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     for (let key of this.keys()) {
       let value = this.get(key);
 
-      // Skip nullish / falsey / empty attributes.
-      if (value === null || value === undefined || value === false || value === '') {
+      // Skip nullish and false attributes. Empty strings are rendered as
+      // key="" to match Drupal's PHP Attribute behavior.
+      if (value === null || value === undefined || value === false) {
         continue;
       }
 

@@ -22,18 +22,31 @@ tape('toString', function(test) {
     test.end();
   });
 
-  test.test('toString should skip nullish, false, and empty attributes', function(test) {
+  test.test('toString should skip nullish and false attributes but render empty strings', function(test) {
     let attribute = new DrupalAttributes();
 
     attribute.setAttribute('foo', null);
     attribute.setAttribute('bar', undefined);
     attribute.setAttribute('baz', false);
-    attribute.setAttribute('qux', ''); // empty string
-    attribute.setAttribute('valid', 'ok'); // only this one should render
+    attribute.setAttribute('qux', ''); // empty string -> key=""
+    attribute.setAttribute('valid', 'ok');
 
     const output = attribute.toString();
 
-    test.equal(output, ' valid="ok"', 'only non-nullish/falsey/empty attributes should render');
+    test.equal(output, ' qux="" valid="ok"', 'nullish/false should be skipped, empty strings should render as key=""');
+    test.end();
+  });
+
+  test.test('toString should render empty-string data attributes to match Drupal PHP Attribute behavior', function(test) {
+    // Regression: Drupal's \Drupal\Core\Template\Attribute renders
+    // new Attribute(['data-platform' => '']) as ' data-platform=""'.
+    // Production JS often relies on these as presence-selectors
+    // (e.g. document.querySelectorAll('[data-platform]')), so the empty
+    // attribute MUST be present in the output.
+    let attribute = new DrupalAttributes();
+    attribute.setAttribute('data-platform', '');
+
+    test.equal(attribute.toString(), ' data-platform=""');
     test.end();
   });
 });
