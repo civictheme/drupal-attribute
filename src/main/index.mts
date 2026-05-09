@@ -1,3 +1,23 @@
+// Mirrors Drupal core's Html::escape(), which is
+// htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') — five entities,
+// single pass. The apostrophe is intentionally '&#039;' (three-digit form):
+// without ENT_HTML5 PHP emits the leading-zero variant, and Drupal's escape
+// helper does not pass that flag. Do not "modernize" this to '&#39;' or
+// '&#x27;' — it would drift from byte-parity with PHP-rendered output and
+// break snapshot tests that compare against Drupal.
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '"': '&quot;',
+  "'": '&#039;',
+  '<': '&lt;',
+  '>': '&gt;',
+};
+const HTML_ESCAPE_RE = /[&"'<>]/g;
+
+function escapeHtml(value: string): string {
+  return value.replace(HTML_ESCAPE_RE, (ch) => HTML_ESCAPE_MAP[ch]);
+}
+
 export type DrupalAttributeEntry = string | Array<string> | Record<string, any> | boolean | null | undefined;
 
 export interface DrupalAttribute extends Map<string, DrupalAttributeEntry> {
@@ -137,7 +157,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
         value = filtered.join(' ');
       }
 
-      components.push(`${key}="${String(value)}"`);
+      components.push(`${escapeHtml(key)}="${escapeHtml(String(value))}"`);
     }
 
     return components.length ? ' ' + components.join(' ') : '';
