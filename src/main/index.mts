@@ -63,10 +63,11 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
           if (d === null || d === undefined || d === '') {
             return;
           }
-          d = String(d);
-          if (classes.indexOf(d) < 0) {
-            classes.push(d);
-          }
+          // PHP Attribute::addClass appends without deduplicating; the class
+          // list is run through array_unique only at render time
+          // (AttributeArray::__toString). Mirror that here — dedup lives in
+          // toString(), not at storage.
+          classes.push(String(d));
         });
       }
     });
@@ -76,19 +77,14 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
 
   removeClass(value: string | Array<string>): this {
     const classes = this.getClasses();
-    
+
     if (classes !== null) {
-      if (!Array.isArray(value)) {
-        value = [value];
-      }
+      const toRemove = Array.isArray(value) ? value : [value];
 
-      value.forEach(function (v) {
-        let index = classes.indexOf(v);
-
-        if (index > -1) {
-          classes.splice(index, 1);
-        }
-      });
+      // PHP Attribute::removeClass uses array_diff + array_values: every
+      // occurrence of each value is removed and the result is re-indexed.
+      // filter() removes all matches and produces a fresh, re-indexed array.
+      this.set('class', classes.filter((c) => !toRemove.includes(c)));
     }
 
     return this;
@@ -107,15 +103,19 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
       return this;
     }
 
-    // Boolean true, render key="key".
+    // Boolean true is stored as-is and rendered as a bare key (e.g. ` disabled`)
+    // by toString(), matching PHP AttributeBoolean::__toString.
     if (value === true) {
-      this.set(key, key);
+      this.set(key, true);
       return this;
     }
 
-    // Reuse addClass method.
+    // PHP setAttribute('class', ...) creates a fresh AttributeArray storing the
+    // raw value (replace, not append); empties/duplicates are resolved at
+    // render time. Store the raw array here and let toString() filter + dedup.
     if (key === 'class') {
-      return this.addClass(value);
+      this.set('class', Array.isArray(value) ? value.slice() : [value]);
+      return this;
     }
 
     this.set(key, value);
@@ -141,20 +141,32 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
         continue;
       }
 
+      // Boolean true renders as a bare key (e.g. ` disabled`), matching PHP
+      // AttributeBoolean::__toString. The key is still HTML-escaped.
+      if (value === true) {
+        components.push(escapeHtml(key));
+        continue;
+      }
+
       if (Array.isArray(value)) {
 
-        // Remove nullish / empty values from array, and make sure all values
-        // are converted to strings.
+        // Mirror PHP AttributeArray::__toString: array_filter drops empties,
+        // array_unique deduplicates, then each value is escaped and joined
+        // with a space. Filtering and dedup happen here at render time, not at
+        // storage, so raw get('class') matches PHP.
         const filtered = value
           .filter(v => v !== null && v !== undefined && v !== '')
           .map(String);
 
+        const unique = [...new Set(filtered)];
+
         // Skip empty arrays.
-        if (filtered.length === 0) {
+        if (unique.length === 0) {
           continue;
         }
 
-        value = filtered.join(' ');
+        components.push(`${escapeHtml(key)}="${unique.map(escapeHtml).join(' ')}"`);
+        continue;
       }
 
       components.push(`${escapeHtml(key)}="${escapeHtml(String(value))}"`);

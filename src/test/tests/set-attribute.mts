@@ -27,11 +27,21 @@ tape('setAttribute', function (test) {
     test.end();
   });
 
-  test.test('should render true as key="key"', function (test) {
+  test.test('should render true as a bare key', function (test) {
+    // PHP AttributeBoolean::__toString renders ` required`, not
+    // ` required="required"`.
     let attr = new DrupalAttribute()
       .setAttribute('required', true);
 
-    test.equal(attr.toString(), ' required="required"');
+    test.equal(attr.toString(), ' required');
+    test.end();
+  });
+
+  test.test('should store boolean true as-is, not as the key string', function (test) {
+    let attr = new DrupalAttribute()
+      .setAttribute('required', true);
+
+    test.equal(attr.get('required'), true);
     test.end();
   });
 
@@ -51,11 +61,33 @@ tape('setAttribute', function (test) {
     test.end();
   });
 
-  test.test('should render key="key" when setAttribute called with true', function(test) {
+  test.test('setAttribute(class) stores the raw array; toString filters at render', function(test) {
+    // PHP setAttribute('class', ...) stores the raw array via AttributeArray;
+    // empties are dropped only at render (array_filter in __toString).
+    let attribute = new DrupalAttribute();
+    attribute.setAttribute('class', ['foo', null, 'bar', '', undefined] as any);
+
+    test.same(attribute.get('class'), ['foo', null, 'bar', '', undefined]);
+    test.equal(attribute.toString(), ' class="foo bar"');
+    test.end();
+  });
+
+  test.test('setAttribute(class) replaces a previously set class list', function(test) {
+    // PHP creates a fresh AttributeArray on setAttribute('class', ...) — it
+    // replaces rather than appends (unlike addClass).
+    let attribute = new DrupalAttribute();
+    attribute.setAttribute('class', ['foo', 'bar']);
+    attribute.setAttribute('class', ['baz']);
+
+    test.same(attribute.get('class'), ['baz']);
+    test.end();
+  });
+
+  test.test('should render a bare key when setAttribute called with true', function(test) {
     let attribute = new DrupalAttribute();
     attribute.setAttribute('disabled', true);
 
-    test.equal(attribute.toString(), ' disabled="disabled"');
+    test.equal(attribute.toString(), ' disabled');
     test.end();
   });
 });

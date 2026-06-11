@@ -142,6 +142,16 @@ tape('HTML escaping', function(test) {
     test.end();
   });
 
+  test.test('toString escapes the bare key of a boolean true attribute', function(test) {
+    // A boolean true renders as a bare key with no value; the key must still
+    // be HTML-escaped so a crafted key can't inject markup.
+    let attr = new DrupalAttribute();
+    attr.set('a<b>', true);
+
+    test.equal(attr.toString(), ' a&lt;b&gt;');
+    test.end();
+  });
+
   test.test('toString escaping covers all five entities in a single value (byte-pinned)', function(test) {
     // Catch-all guard: if a future contributor adjusts the escape map and
     // breaks any one entity, this test reports the exact deviation.

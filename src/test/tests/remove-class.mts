@@ -56,4 +56,19 @@ tape('removeClass', function(test) {
     test.same(attribute.get('class'), ['foo']);
     test.end();
   });
+
+  test.test('should remove ALL occurrences of a duplicated class and re-index', function (test) {
+    // PHP Attribute::removeClass uses array_diff + array_values: every match
+    // is removed and the result is re-indexed. Duplicates can exist because
+    // addClass defers deduplication to render time.
+    let attribute = new DrupalAttribute();
+
+    attribute
+      .addClass('foo', 'bar', 'foo')
+      .removeClass('foo')
+    ;
+
+    test.same(attribute.get('class'), ['bar']);
+    test.end();
+  });
 });

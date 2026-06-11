@@ -120,11 +120,15 @@ tape('PHP Drupal Attribute parity', function(test) {
     test.end();
   });
 
-  test.test('addClass deduplicates within a single call', function(test) {
+  test.test('addClass stores duplicates raw and deduplicates at render', function(test) {
+    // PHP Attribute::addClass appends without deduplicating; the class list is
+    // run through array_unique only at render (AttributeArray::__toString).
+    // Raw storage therefore keeps the duplicate; toString collapses it.
     let attr = new DrupalAttribute();
     attr.addClass('foo', 'foo', 'bar');
 
-    test.same(attr.get('class'), ['foo', 'bar']);
+    test.same(attr.get('class'), ['foo', 'foo', 'bar']);
+    test.equal(attr.toString(), ' class="foo bar"');
     test.end();
   });
 
@@ -139,7 +143,7 @@ tape('PHP Drupal Attribute parity', function(test) {
 
     test.equal(
       attr.toString(),
-      ' id="main" data-platform="" class="ct-link ct-theme-light" tabindex="0" hidden="hidden"'
+      ' id="main" data-platform="" class="ct-link ct-theme-light" tabindex="0" hidden'
     );
     test.end();
   });

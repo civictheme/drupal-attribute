@@ -30,7 +30,9 @@ tape('addClass', function(test) {
     test.end();
   });
 
-  test.test('should support adding an existing class', function (test) {
+  test.test('should keep duplicates in raw storage and dedupe at render', function (test) {
+    // PHP defers deduplication to render time (array_unique in
+    // AttributeArray::__toString), so raw storage retains both entries.
     let attribute = new DrupalAttribute();
 
     attribute
@@ -38,7 +40,8 @@ tape('addClass', function(test) {
       .addClass('foo')
     ;
 
-    test.same(attribute.get('class'), ['foo']);
+    test.same(attribute.get('class'), ['foo', 'foo']);
+    test.equal(attribute.toString(), ' class="foo"');
     test.end();
   });
 
