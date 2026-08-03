@@ -3,14 +3,14 @@ import tape from "tape";
 
 tape('toString', function(test) {
   test.test('should return an empty string when no attribute has been set', function (test) {
-    let attribute = new DrupalAttributes();
+    const attribute = new DrupalAttributes();
 
     test.equal(attribute.toString(), '');
     test.end();
   });
 
   test.test('should return a valid HTML attribute string when at least one attribute has been set', function (test) {
-    let attribute = new DrupalAttributes();
+    const attribute = new DrupalAttributes();
 
     attribute
       .setAttribute('foo', 'bar')
@@ -23,7 +23,7 @@ tape('toString', function(test) {
   });
 
   test.test('toString should skip nullish and false attributes but render empty strings', function(test) {
-    let attribute = new DrupalAttributes();
+    const attribute = new DrupalAttributes();
 
     attribute.setAttribute('foo', null);
     attribute.setAttribute('bar', undefined);
@@ -43,7 +43,7 @@ tape('toString', function(test) {
     // Production JS often relies on these as presence-selectors
     // (e.g. document.querySelectorAll('[data-platform]')), so the empty
     // attribute MUST be present in the output.
-    let attribute = new DrupalAttributes();
+    const attribute = new DrupalAttributes();
     attribute.setAttribute('data-platform', '');
 
     test.equal(attribute.toString(), ' data-platform=""');

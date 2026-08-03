@@ -3,14 +3,14 @@ import tape from "tape";
 
 tape('removeAttribute', function(test) {
   test.test('should support method chaining', function(test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     test.equal(attribute.removeAttribute('foo'), attribute);
     test.end();
   });
 
   test.test('should support being passed a string', function (test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     attribute
       .setAttribute('foo', 'bar')

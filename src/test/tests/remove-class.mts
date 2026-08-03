@@ -3,14 +3,14 @@ import tape from "tape";
 
 tape('removeClass', function(test) {
   test.test('should support method chaining', function(test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     test.equal(attribute.removeClass('foo'), attribute);
     test.end();
   });
 
   test.test('should support being passed a string', function (test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     attribute
       .addClass('foo')
@@ -23,7 +23,7 @@ tape('removeClass', function(test) {
   });
 
   test.test('should support being passed an array', function (test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     attribute
       .addClass(['foo', 'bar', 'foo-bar'])
@@ -35,7 +35,7 @@ tape('removeClass', function(test) {
   });
 
   test.test('should support being called on an instance with no class set', function (test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     attribute
       .removeClass(['bar'])
@@ -46,7 +46,7 @@ tape('removeClass', function(test) {
   });
 
   test.test('should support being called on a unregistered class', function (test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     attribute
       .addClass('foo')
@@ -61,7 +61,7 @@ tape('removeClass', function(test) {
     // PHP Attribute::removeClass uses array_diff + array_values: every match
     // is removed and the result is re-indexed. Duplicates can exist because
     // addClass defers deduplication to render time.
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     attribute
       .addClass('foo', 'bar', 'foo')

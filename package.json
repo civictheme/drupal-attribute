@@ -7,7 +7,7 @@
   ],
   "author": "Eric MORAND <eric.morand@gmail.com>",
   "license": "MIT",
-  "repository": "https://gitlab.com/nightlycommit/drupal-attribute",
+  "repository": "https://github.com/civictheme/drupal-attribute",
   "main": "src/main/target/index.cjs",
   "module": "src/main/target/index.mjs",
   "types": "src/main/target/index.d.mts",
@@ -28,6 +28,8 @@
     "build:main": "(cd src/main && rollup -c)",
     "build:test": "(cd src/test && rollup -c)",
     "prepare": "npm run build:main",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit -p src/tsconfig.json",
     "test": "npm run build:main && npm run build:test && node src/test/target/index.mjs"
   },
   "dependencies": {
@@ -38,7 +40,10 @@
     "tape": "^5.9.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
     "rollup": "^4.60.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0"
   }
 }

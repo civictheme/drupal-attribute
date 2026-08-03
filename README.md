@@ -1,6 +1,8 @@
 # drupal-attribute
 
-[![NPM version][npm-image]][npm-url] [![Coverage percentage][coveralls-image]][coveralls-url]
+[![NPM version][npm-image]][npm-url]
+
+**This is a fork of [drupal-attribute](https://gitlab.com/nightlycommit/drupal-attribute) by [Eric MORAND](https://gitlab.com/nightlycommit), maintained by [CivicTheme](https://github.com/civictheme). All credit for the original implementation belongs to the upstream authors.**
 
 This is not [drupal-attribute](https://npmjs.org/package/drupal-attribute). This is the _project_ behind [drupal-attribute](https://npmjs.org/package/drupal-attribute).
 
@@ -89,16 +91,14 @@ src/test/foo$ tsx bar.ts | tap-nyan
 
 ## Contributing
 
-* Fork this repository
+* Fork [this repository](https://github.com/civictheme/drupal-attribute)
 * Code
 * Implement tests using [tape](https://github.com/substack/tape)
 * Issue a pull request keeping in mind that all pull requests must reference an issue in the issue queue
 
 ## License
 
-Apache-2.0 © [Eric MORAND]()
+Apache-2.0 © [Eric MORAND](https://gitlab.com/nightlycommit)
 
 [npm-image]: https://badge.fury.io/js/drupal-attribute.svg
 [npm-url]: https://npmjs.org/package/drupal-attribute
-[coveralls-image]: https://coveralls.io/repos/gitlab/nightlycommit/drupal-attribute/badge.svg
-[coveralls-url]: https://coveralls.io/gitlab/nightlycommit/drupal-attribute

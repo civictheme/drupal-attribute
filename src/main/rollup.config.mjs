@@ -54,7 +54,7 @@ const program = (commandLineArgs) => {
             ],
             author: "Eric MORAND <eric.morand@gmail.com>",
             license: "MIT License",
-            repository: "https://gitlab.com/nightlycommit/drupal-attribute",
+            repository: "https://github.com/civictheme/drupal-attribute",
             exports: {
               import: "./index.mjs",
               require: "./index.cjs",

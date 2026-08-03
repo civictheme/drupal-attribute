@@ -18,14 +18,27 @@ function escapeHtml(value: string): string {
   return value.replace(HTML_ESCAPE_RE, (ch) => HTML_ESCAPE_MAP[ch]);
 }
 
-export type DrupalAttributeEntry = string | Array<string> | Record<string, any> | boolean | null | undefined;
+// `number` is included because numeric values are a supported parity behavior:
+// PHP renders 0 as key="0" rather than skipping it (see NOTES.md).
+//
+// The nested record is unconstrained by design: merge() deep-merges arbitrary
+// consumer-supplied objects, mirroring PHP NestedArray::mergeDeep, which places
+// no constraint on nested value types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DrupalAttributeEntry = string | number | Array<string> | Record<string, any> | boolean | null | undefined;
 
+// Interface/class declaration merging is intentional: the interface supplies the
+// polymorphic `this` return types for the chainable class methods below, each of
+// which the class implements. The rule guards against interfaces declaring
+// members the class never implements — not the case here.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   addClass(...args: Array<DrupalAttributeEntry | Map<string, string>>): this;
   hasClass(key: string): boolean;
   removeClass(value: string | Array<string>): this;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   getClasses(): Array<string> | null {
     let results: Array<string> | null = null;
@@ -91,7 +104,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   }
 
   hasClass(value: string): boolean {
-    let classes = this.getClasses();
+    const classes = this.getClasses();
 
     return classes !== null ? (classes.indexOf(value) > -1) : false;
   }
@@ -130,10 +143,10 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   }
 
   toString(): string {
-    let components = [];
+    const components = [];
 
-    for (let key of this.keys()) {
-      let value = this.get(key);
+    for (const key of this.keys()) {
+      const value = this.get(key);
 
       // Skip nullish and false attributes. Empty strings are rendered as
       // key="" to match Drupal's PHP Attribute behavior.
@@ -180,15 +193,15 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
    */
   merge(collection: DrupalAttribute): this {
     // Convert both the current attributes and the input collection's attributes to plain objects.
-    let currentAttributes = Object.fromEntries(this);
-    let newAttributes = Object.fromEntries(collection);
+    const currentAttributes = Object.fromEntries(this);
+    const newAttributes = Object.fromEntries(collection);
 
     // Perform a deep merge.
-    let mergedAttributes = this.mergeDeep(currentAttributes, newAttributes);
+    const mergedAttributes = this.mergeDeep(currentAttributes, newAttributes);
 
     // Clear the current Map and set the merged attributes.
     this.clear();
-    for (let key in mergedAttributes) {
+    for (const key in mergedAttributes) {
       this.set(key, mergedAttributes[key]);
     }
 
@@ -197,7 +210,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
 
   // Helper function for deep merging.
   mergeDeep(target: Record<string, DrupalAttributeEntry>, source: Record<string, DrupalAttributeEntry>) {
-    for (let key in source) {
+    for (const key in source) {
       if (source[key] instanceof Array) {
         if (!target[key]) {
           target[key] = [];

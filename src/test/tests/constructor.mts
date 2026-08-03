@@ -3,14 +3,14 @@ import tape from "tape";
 
 tape('constructor', function (test) {
   test.test('should support being passed no parameter', function (test) {
-    let attribute = new DrupalAttribute();
+    const attribute = new DrupalAttribute();
 
     test.ok(attribute);
     test.end();
   });
 
   test.test('should support being passed an iterable', function (test) {
-    let attribute = new DrupalAttribute([
+    const attribute = new DrupalAttribute([
       ['foo', 'bar'],
       ['bar', 'foo']
     ]);
