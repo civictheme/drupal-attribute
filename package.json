@@ -32,17 +32,15 @@
     "typecheck": "tsc --noEmit -p src/tsconfig.json",
     "test": "npm run build:main && npm run build:test && node src/test/target/index.mjs"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nightlycommit/rollup-plugin-package-manifest": "^1.0.0-alpha.2",
     "@types/node": "^16.18.126",
     "@types/tape": "^5.8.1",
     "@vitrail/rollup-plugin-typescript": "^1.0.4-beta.0",
-    "tape": "^5.9.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "eslint": "^10.8.0",
     "rollup": "^4.60.3",
+    "tape": "^5.9.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0"
   }
