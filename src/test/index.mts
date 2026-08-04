@@ -13,6 +13,7 @@ import "./tests/remove-class.mjs";
 import "./tests/set-attribute.mjs";
 import "./tests/to-string.mjs";
 import "./tests/twig-integration.mjs";
+import "./tests/twig-keys.mjs";
 
 tape('The library exports DrupalAttribute as default export', ({same, end}) => {
   same(defaultExport, DrupalAttribute);

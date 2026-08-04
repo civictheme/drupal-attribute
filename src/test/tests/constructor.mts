@@ -56,13 +56,16 @@ tape('constructor', function (test) {
     test.end();
   });
 
-  test.test('should not read the twig.js _keys property', function (test) {
-    // The constructor is the generic entry point and has no twig.js knowledge;
-    // `_keys` handling belongs to createAttribute(). Documented so the split
-    // stays deliberate.
+  test.test('should read the twig.js _keys property', function (test) {
+    // 2.0.0 kept `_keys` handling in createAttribute() alone, on the reasoning
+    // that the constructor is the generic entry point. That split leaked: every
+    // consumer that builds a collection directly — drupal-twig-extensions and
+    // twig-testing-library both do — rendered `_keys` as an attribute. The
+    // constructor now consumes it like createAttribute() always has.
     const attribute = new DrupalAttribute({foo: 'bar', _keys: ['foo']});
 
-    test.equal(attribute.has('_keys'), true);
+    test.equal(attribute.has('_keys'), false);
+    test.equal(attribute.toString(), ' foo="bar"');
     test.end();
   });
 });

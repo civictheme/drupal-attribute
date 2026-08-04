@@ -13,17 +13,21 @@ This is not [drupal-attribute](https://npmjs.org/package/drupal-attribute). This
 
 ```js
 import Twig from 'twig';
-import { createAttribute } from 'drupal-attribute';
+import { createAttribute } from '@civictheme/drupal-attribute';
 
 Twig.extendFunction('create_attribute', createAttribute);
 ```
 
-Use it in preference to the `create_attribute` shipped by
-[`drupal-twig-extensions`](https://github.com/JohnAlbin/drupal-twig-extensions),
-which builds its collection with `Object.keys()`. twig.js stamps every object
-literal compiled from a template with an own, enumerable `_keys` array recording
-the authored key order, so `Object.keys()` both picks up `_keys` as though it
-were an attribute and returns the remaining keys in the wrong order:
+twig.js stamps every object literal compiled from a template with an own,
+enumerable `_keys` array recording the authored key order. **A collection from
+this package never renders it**, whether you build it with `createAttribute()`,
+the constructor, or `setAttribute()` — so no consumer has to strip it.
+
+What `createAttribute()` adds is ordering. The `create_attribute` shipped by
+[`drupal-twig-extensions`](https://github.com/JohnAlbin/drupal-twig-extensions)
+walks the mapping with `Object.keys()`, which returns the remaining keys in the
+wrong order — integer-like keys hoist to the front, and twig.js's expression
+stack assigns the rest out of order:
 
 ```twig
 <button{{ create_attribute({'data-slider-previous': '', 'class': 'btn'}) }}></button>
@@ -31,16 +35,16 @@ were an attribute and returns the remaining keys in the wrong order:
 
 ```html
 <!-- drupal-twig-extensions -->
-<button class="btn" _keys="data-slider-previous class" data-slider-previous=""></button>
+<button class="btn" data-slider-previous=""></button>
 
 <!-- createAttribute -->
 <button data-slider-previous="" class="btn"></button>
 ```
 
-`createAttribute()` reads `_keys` for its ordering and never renders it, so
-output matches what Drupal's PHP `Attribute` produces for the same template.
-Objects that carry no `_keys` — anything reaching the function from the render
-context rather than from a template literal — keep their own enumeration order.
+`createAttribute()` reads `_keys` for its ordering, so output matches what
+Drupal's PHP `Attribute` produces for the same template. Objects that carry no
+`_keys` — anything reaching the function from the render context rather than
+from a template literal — keep their own enumeration order.
 
 Upstream tracks the same defect as
 [drupal-twig-extensions#1](https://github.com/JohnAlbin/drupal-twig-extensions/issues/1).

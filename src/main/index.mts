@@ -39,6 +39,42 @@ function isEntryIterable(value: object): value is Iterable<readonly [string, Dru
   return typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function';
 }
 
+// Twig.js stamps every object literal it compiles from a template with an own,
+// enumerable `_keys` array holding the authored key order. It needs that array
+// because the object it builds does not preserve that order itself: its
+// expression stack assigns the keys out of order, and JS additionally hoists
+// integer-like keys to the front. For `{'2': 'two', 'b': 'bee', '1': 'one'}`,
+// Object.keys() gives ['1', '2', '_keys', 'b'] while `_keys` gives the authored
+// ['2', 'b', '1'].
+//
+// So `_keys` is bookkeeping that must never be rendered as an attribute, and at
+// the same time it is the only way to recover the order Drupal would render in.
+// Verified identical in twig.js 1.17.1 and 3.0.0.
+const TWIG_KEY_ORDER_PROPERTY = '_keys';
+
+function hasOwn(target: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(target, key);
+}
+
+/**
+ * Resolves the order a Twig.js mapping's keys should be rendered in.
+ */
+function orderedKeys(attributes: Record<string, DrupalAttributeEntry>): Array<string> {
+  const declared = attributes[TWIG_KEY_ORDER_PROPERTY];
+
+  const ordered = Array.isArray(declared)
+    ? declared.filter((key) => typeof key === 'string' && key !== TWIG_KEY_ORDER_PROPERTY && hasOwn(attributes, key))
+    : [];
+
+  // Whatever `_keys` does not account for — because it is absent, stale, or not
+  // an array at all — keeps its own enumeration order behind the ordered keys.
+  // No attribute is ever dropped for being unlisted.
+  const remaining = Object.keys(attributes)
+    .filter((key) => key !== TWIG_KEY_ORDER_PROPERTY && ordered.indexOf(key) === -1);
+
+  return ordered.concat(remaining);
+}
+
 // Interface/class declaration merging is intentional: the interface supplies the
 // polymorphic `this` return types for the chainable class methods below, each of
 // which the class implements. The rule guards against interfaces declaring
@@ -63,7 +99,12 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
       return;
     }
 
-    const entries = isEntryIterable(attributes) ? attributes : Object.entries(attributes);
+    // Plain objects are read in `_keys` order when Twig.js supplied one, so
+    // `new DrupalAttribute(mapping)` and createAttribute(mapping) agree. Maps
+    // and entry arrays are already ordered and never carry the bookkeeping.
+    const entries: Iterable<readonly [string, DrupalAttributeEntry]> = isEntryIterable(attributes)
+      ? attributes
+      : orderedKeys(attributes).map((key): [string, DrupalAttributeEntry] => [key, attributes[key]]);
 
     for (const [key, value] of entries) {
       this.setAttribute(key, value);
@@ -140,6 +181,15 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   }
 
   setAttribute(key: string, value: DrupalAttributeEntry) {
+    // Twig.js bookkeeping is never an attribute, so it is dropped rather than
+    // stored. This is the path consumers reach when they loop a template
+    // mapping into setAttribute() one key at a time — which is what
+    // drupal-twig-extensions' own create_attribute does — rather than handing
+    // the whole mapping to the constructor.
+    if (key === TWIG_KEY_ORDER_PROPERTY) {
+      return this;
+    }
+
     // Omit attribute for nullish / false values.
     if (value === null || value === undefined || value === false) {
       this.delete(key);
@@ -177,6 +227,14 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
 
     for (const key of this.keys()) {
       const value = this.get(key);
+
+      // Never render Twig.js's key-order bookkeeping, however it got in. This
+      // is the guarantee: setAttribute() drops it and the constructor consumes
+      // it, but raw Map.set() and merge() bypass both, so the check has to live
+      // here as well.
+      if (key === TWIG_KEY_ORDER_PROPERTY) {
+        continue;
+      }
 
       // Skip nullish and false attributes. Empty strings are rendered as
       // key="" to match Drupal's PHP Attribute behavior.
@@ -277,52 +335,19 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   }
 }
 
-// Twig.js stamps every object literal it compiles from a template with an own,
-// enumerable `_keys` array holding the authored key order. It needs that array
-// because the object it builds does not preserve that order itself: its
-// expression stack assigns the keys out of order, and JS additionally hoists
-// integer-like keys to the front. For `{'2': 'two', 'b': 'bee', '1': 'one'}`,
-// Object.keys() gives ['1', '2', '_keys', 'b'] while `_keys` gives the authored
-// ['2', 'b', '1'].
-//
-// So `_keys` is bookkeeping that must never be rendered as an attribute, and at
-// the same time it is the only way to recover the order Drupal would render in.
-// Verified identical in twig.js 1.17.1 and 3.0.0.
-const TWIG_KEY_ORDER_PROPERTY = '_keys';
-
-function hasOwn(target: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(target, key);
-}
-
-/**
- * Resolves the order a Twig.js mapping's keys should be rendered in.
- */
-function orderedKeys(attributes: Record<string, DrupalAttributeEntry>): Array<string> {
-  const declared = attributes[TWIG_KEY_ORDER_PROPERTY];
-
-  const ordered = Array.isArray(declared)
-    ? declared.filter((key) => typeof key === 'string' && key !== TWIG_KEY_ORDER_PROPERTY && hasOwn(attributes, key))
-    : [];
-
-  // Whatever `_keys` does not account for — because it is absent, stale, or not
-  // an array at all — keeps its own enumeration order behind the ordered keys.
-  // No attribute is ever dropped for being unlisted.
-  const remaining = Object.keys(attributes)
-    .filter((key) => key !== TWIG_KEY_ORDER_PROPERTY && ordered.indexOf(key) === -1);
-
-  return ordered.concat(remaining);
-}
-
 /**
  * Creates an attribute collection from a Twig mapping.
  *
  * This is the Twig-facing entry point, equivalent to Drupal's
- * `create_attribute()`. Register it with twig.js to keep `_keys` out of the
- * rendered markup and to render attributes in template order:
+ * `create_attribute()`. Register it with twig.js to render attributes in
+ * template order:
  *
  * ```js
  * Twig.extendFunction('create_attribute', createAttribute);
  * ```
+ *
+ * Keeping `_keys` out of the markup is no longer its job — the collection
+ * itself never renders it, whichever way the mapping is handed over.
  *
  * @param {?DrupalAttributeInit} attributes
  *   (optional) Key-value pairs to convert into HTML attributes.
@@ -331,19 +356,7 @@ function orderedKeys(attributes: Record<string, DrupalAttributeEntry>): Array<st
  *   An attribute collection holding the given attributes.
  */
 export function createAttribute(attributes?: DrupalAttributeInit | null): DrupalAttribute {
-  if (attributes === null || attributes === undefined) {
-    return new DrupalAttribute();
-  }
-
-  // Maps and entry arrays are already ordered key/value pairs and never carry
-  // Twig.js bookkeeping, so they go straight to the constructor.
-  if (isEntryIterable(attributes)) {
-    return new DrupalAttribute(attributes);
-  }
-
-  return new DrupalAttribute(
-    orderedKeys(attributes).map((key): [string, DrupalAttributeEntry] => [key, attributes[key]]),
-  );
+  return new DrupalAttribute(attributes);
 }
 
 // Provide a default export for compatibility with legacy consumers and tooling.
