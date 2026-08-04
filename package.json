@@ -1,5 +1,5 @@
 {
-  "name": "drupal-attribute",
+  "name": "@civictheme/drupal-attribute",
   "version": "1.2.2",
   "description": "Emulate Drupal Attribute in JavaScript.",
   "keywords": [
@@ -8,13 +8,16 @@
   "author": "Eric MORAND <eric.morand@gmail.com>",
   "license": "Apache-2.0",
   "repository": "https://github.com/civictheme/drupal-attribute",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "src/main/target/index.cjs",
   "module": "src/main/target/index.mjs",
   "types": "src/main/target/index.d.mts",
   "exports": {
+    "types": "./src/main/target/index.d.mts",
     "import": "./src/main/target/index.mjs",
-    "require": "./src/main/target/index.cjs",
-    "types": "./src/main/target/index.d.mts"
+    "require": "./src/main/target/index.cjs"
   },
   "files": [
     "src/main/target",
@@ -24,6 +27,9 @@
     "LICENSE",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build:main": "(cd src/main && rollup -c)",
     "build:test": "(cd src/test && rollup -c)",

@@ -10,7 +10,10 @@ const moduleTargetName = 'index.mjs';
  * @var {import("rollup").RollupOptionsFunction}
  */
 const program = (commandLineArgs) => {
-  const version = process.env.VERSION || '1.0.0-SNAPSHOT';
+  // npm sets npm_package_version whenever it runs a script, so `prepare` — and
+  // therefore `npm pack` and `npm publish` — stamps the manifest with the real
+  // version. VERSION still wins for one-off builds.
+  const version = process.env.VERSION || process.env.npm_package_version || '1.0.0-SNAPSHOT';
 
   console.log(`Building main artifact under version ${version}...`);
 
@@ -44,7 +47,7 @@ const program = (commandLineArgs) => {
         file: join('target', moduleTargetName),
         plugins: [
           createPackageManifestPlugin({
-            name: 'drupal-attribute',
+            name: '@civictheme/drupal-attribute',
             version,
             description: "Emulate Drupal Attribute in JavaScript.",
             main: "index.cjs",
@@ -56,9 +59,9 @@ const program = (commandLineArgs) => {
             license: "Apache-2.0",
             repository: "https://github.com/civictheme/drupal-attribute",
             exports: {
+              types: "./index.d.mts",
               import: "./index.mjs",
-              require: "./index.cjs",
-              types: "./index.d.mts"
+              require: "./index.cjs"
             }
           })
         ]
