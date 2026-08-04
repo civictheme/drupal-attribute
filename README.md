@@ -6,6 +6,57 @@
 
 This is not [drupal-attribute](https://npmjs.org/package/drupal-attribute). This is the _project_ behind [drupal-attribute](https://npmjs.org/package/drupal-attribute).
 
+## Using with twig.js
+
+`createAttribute()` is the Twig-facing entry point, equivalent to Drupal's
+`create_attribute()`. Register it with twig.js:
+
+```js
+import Twig from 'twig';
+import { createAttribute } from 'drupal-attribute';
+
+Twig.extendFunction('create_attribute', createAttribute);
+```
+
+Use it in preference to the `create_attribute` shipped by
+[`drupal-twig-extensions`](https://github.com/JohnAlbin/drupal-twig-extensions),
+which builds its collection with `Object.keys()`. twig.js stamps every object
+literal compiled from a template with an own, enumerable `_keys` array recording
+the authored key order, so `Object.keys()` both picks up `_keys` as though it
+were an attribute and returns the remaining keys in the wrong order:
+
+```twig
+<button{{ create_attribute({'data-slider-previous': '', 'class': 'btn'}) }}></button>
+```
+
+```html
+<!-- drupal-twig-extensions -->
+<button class="btn" _keys="data-slider-previous class" data-slider-previous=""></button>
+
+<!-- createAttribute -->
+<button data-slider-previous="" class="btn"></button>
+```
+
+`createAttribute()` reads `_keys` for its ordering and never renders it, so
+output matches what Drupal's PHP `Attribute` produces for the same template.
+Objects that carry no `_keys` — anything reaching the function from the render
+context rather than from a template literal — keep their own enumeration order.
+
+Upstream tracks the same defect as
+[drupal-twig-extensions#1](https://github.com/JohnAlbin/drupal-twig-extensions/issues/1).
+Note that `addDrupalExtensions(Twig)` runs on every compiled Twig module import
+and re-registers its own implementation, so depending on module evaluation order
+you may need to register through a wrapper rather than once at startup:
+
+```js
+const extendFunction = Twig.extendFunction.bind(Twig);
+
+Twig.extendFunction = (name, definition) =>
+  extendFunction(name, name === 'create_attribute' ? createAttribute : definition);
+
+Twig.extendFunction('create_attribute', createAttribute);
+```
+
 ## Prerequisites
 
 * Node.js 16 and above

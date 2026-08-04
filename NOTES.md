@@ -119,5 +119,72 @@ print (string) (new Attribute(['x' => NULL, 'y' => FALSE])); // ''
 | `addClass` defers dedup to render | `AttributeArray::__toString` line ~76 (`array_unique`) | Appends raw; `array_unique` at render |
 | Merge: arrays deep-merge, scalars overwrite | `Attribute::merge` lines ~399-404 | Uses `NestedArray::mergeDeep` |
 | Iteration order = insertion order | `Attribute::getIterator` lines ~370-371 | Uses `ArrayIterator` over storage |
+| Constructor applies `setAttribute` rules | `Attribute::__construct` lines 108-112 | Loops the input calling `offsetSet()`, so `class` is forced to an array on constructor input too |
+| Render order = template order | `Attribute::__construct` lines 108-112 + `getIterator` lines 377-381 | PHP arrays preserve authored key order; `createAttribute()` has to reconstruct it (see below) |
+
+---
+
+## The twig.js boundary: `createAttribute()` and `_keys`
+
+`DrupalAttribute` itself has no knowledge of twig.js. `createAttribute()` is the
+one place that does, because a mapping arriving from a twig.js template is not a
+faithful record of what the template wrote.
+
+twig.js stamps every object literal it compiles with an own, enumerable `_keys`
+array holding the authored key order. It needs that array because the object it
+builds does not preserve that order itself — its expression stack assigns the
+keys out of order, and JS additionally hoists integer-like keys to the front:
+
+| Template literal | `Object.keys()` | `_keys` |
+|---|---|---|
+| `{'a': '1', 'b': '2', 'c': '3'}` | `['c', '_keys', 'b', 'a']` | `['a', 'b', 'c']` |
+| `{'2': 'two', 'b': 'bee', '1': 'one'}` | `['1', '2', '_keys', 'b']` | `['2', 'b', '1']` |
+
+So `_keys` is bookkeeping that must never be rendered as an attribute, and at
+the same time it is the only record of the order PHP would render in. Any
+implementation walking these objects with `Object.keys()` — including the
+`create_attribute` in `drupal-twig-extensions`, tracked upstream as
+[issue #1](https://github.com/JohnAlbin/drupal-twig-extensions/issues/1) — emits
+a junk `_keys="…"` attribute and scrambles the rest.
+
+`createAttribute()` orders by `_keys` where it is a usable array, appends any
+own keys it does not account for in enumeration order, and never stores `_keys`.
+Objects with no `_keys` — anything reaching the function from the render context
+rather than from a template literal — keep their own enumeration order.
+
+Verified identical on twig.js 1.17.1 and 3.0.0. `src/test/tests/twig-integration.mts`
+drives the cases through a real twig.js render; `src/test/tests/create-attribute.mts`
+covers the same ground as units, including malformed and stale `_keys`.
+
+---
+
+## Known gaps
+
+### A plain object cannot carry integer-like keys in authored order
+
+JS hoists integer-like keys to the front of an object, so
+`{'2': 'two', 'b': 'bee', '1': 'one'}` has already become `1, 2, b` before the
+constructor or `createAttribute()` can see it. Nothing downstream can recover
+what the caller wrote. `createAttribute()` recovers it for twig.js templates
+only because twig.js records the order separately in `_keys`; there is no
+equivalent for a hand-written object literal. Pass a `Map` or an array of
+entries where order matters. PHP has no such limitation — its arrays keep
+insertion order for integer keys.
+
+### Integer-like attribute names survive `merge()`; in PHP they are renumbered
+
+PHP converts array keys that are integer strings to integers, and
+`NestedArray::mergeDeepArray` (`core/lib/Drupal/Component/Utility/NestedArray.php`
+lines 216-242) renumbers integer keys rather than preserving them, appending
+each with `$result[] = $value` unless `$preserve_integer_keys` is set —
+`Attribute::merge` does not set it. So merging `['2' => 'two']` in PHP produces a
+fresh sequential key, not `2`.
+
+JS `Map` keys are strings throughout, so `merge()` here keeps `2` as the
+attribute name and holds its position. Nothing renders differently for any valid
+HTML attribute name — a name cannot start with a digit — so this is recorded
+rather than fixed. `merge()` does preserve insertion order for string keys,
+which is the behavior `Attribute::merge` has for every name that can legally
+reach it.
 
 ---

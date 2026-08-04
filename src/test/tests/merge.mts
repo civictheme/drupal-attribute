@@ -76,6 +76,33 @@ tape('merge', function(test) {
     test.end();
   });
 
+  test.test('should preserve attribute order across a merge', function(test) {
+    // Existing keys hold their position, incoming keys append.
+    const attribute1 = new DrupalAttribute({zulu: '1', alpha: '2'});
+    const attribute2 = new DrupalAttribute({mike: '3', alpha: '4'});
+
+    attribute1.merge(attribute2);
+
+    test.equal(attribute1.toString(), ' zulu="1" alpha="4" mike="3"');
+    test.end();
+  });
+
+  test.test('should preserve the position of integer-like keys across a merge', function(test) {
+    // Regression guard: merge() used to iterate the merged plain object with
+    // `for...in`, which hoists '2' ahead of 'b' regardless of insertion order.
+    //
+    // Built from entries rather than an object literal on purpose — a plain
+    // object hoists '2' on the way in, so it could not show what merge does.
+    const attribute1 = new DrupalAttribute([['b', 'bee'], ['2', 'two']]);
+
+    test.equal(attribute1.toString(), ' b="bee" 2="two"', 'order holds before the merge');
+
+    attribute1.merge(new DrupalAttribute([['c', 'see']]));
+
+    test.equal(attribute1.toString(), ' b="bee" 2="two" c="see"');
+    test.end();
+  });
+
   test.test('mergeDeep should initialise missing array target', function(test) {
     const attribute = new DrupalAttribute();
 

@@ -27,6 +27,18 @@ function escapeHtml(value: string): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DrupalAttributeEntry = string | number | Array<string> | Record<string, any> | boolean | null | undefined;
 
+// What the constructor and createAttribute() accept. Anything iterable is read
+// as key/value entries — Map, another DrupalAttribute, an array of pairs —
+// mirroring the Map constructor. Everything else is read as a plain mapping,
+// mirroring PHP's `new Attribute(['class' => 'foo'])`.
+export type DrupalAttributeInit =
+  | Iterable<readonly [string, DrupalAttributeEntry]>
+  | Record<string, DrupalAttributeEntry>;
+
+function isEntryIterable(value: object): value is Iterable<readonly [string, DrupalAttributeEntry]> {
+  return typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function';
+}
+
 // Interface/class declaration merging is intentional: the interface supplies the
 // polymorphic `this` return types for the chainable class methods below, each of
 // which the class implements. The rule guards against interfaces declaring
@@ -40,6 +52,24 @@ export interface DrupalAttribute extends Map<string, DrupalAttributeEntry> {
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
+  // Every entry is routed through setAttribute() rather than Map's own bulk
+  // insert, matching PHP Attribute::__construct, which loops over the input and
+  // calls offsetSet() per pair. That is what applies the `class`-is-always-an-
+  // array rule to constructor input as well as to later assignment.
+  constructor(attributes?: DrupalAttributeInit | null) {
+    super();
+
+    if (attributes === null || attributes === undefined) {
+      return;
+    }
+
+    const entries = isEntryIterable(attributes) ? attributes : Object.entries(attributes);
+
+    for (const [key, value] of entries) {
+      this.setAttribute(key, value);
+    }
+  }
+
   getClasses(): Array<string> | null {
     let results: Array<string> | null = null;
 
@@ -199,9 +229,23 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     // Perform a deep merge.
     const mergedAttributes = this.mergeDeep(currentAttributes, newAttributes);
 
+    // Read the resulting order from the two Maps, not from the merged plain
+    // object: JS hoists integer-like keys to the front of an object, so a
+    // `for...in` here would turn ` b="bee" 2="two"` into ` 2="two" b="bee"`.
+    // Maps preserve true insertion order. Existing keys keep their position and
+    // incoming ones append, matching PHP NestedArray::mergeDeepArray for string
+    // keys (see NOTES.md for the integer-key gap).
+    const order = Array.from(this.keys());
+
+    for (const key of collection.keys()) {
+      if (order.indexOf(key) === -1) {
+        order.push(key);
+      }
+    }
+
     // Clear the current Map and set the merged attributes.
     this.clear();
-    for (const key in mergedAttributes) {
+    for (const key of order) {
       this.set(key, mergedAttributes[key]);
     }
 
@@ -231,6 +275,75 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     }
     return target;
   }
+}
+
+// Twig.js stamps every object literal it compiles from a template with an own,
+// enumerable `_keys` array holding the authored key order. It needs that array
+// because the object it builds does not preserve that order itself: its
+// expression stack assigns the keys out of order, and JS additionally hoists
+// integer-like keys to the front. For `{'2': 'two', 'b': 'bee', '1': 'one'}`,
+// Object.keys() gives ['1', '2', '_keys', 'b'] while `_keys` gives the authored
+// ['2', 'b', '1'].
+//
+// So `_keys` is bookkeeping that must never be rendered as an attribute, and at
+// the same time it is the only way to recover the order Drupal would render in.
+// Verified identical in twig.js 1.17.1 and 3.0.0.
+const TWIG_KEY_ORDER_PROPERTY = '_keys';
+
+function hasOwn(target: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(target, key);
+}
+
+/**
+ * Resolves the order a Twig.js mapping's keys should be rendered in.
+ */
+function orderedKeys(attributes: Record<string, DrupalAttributeEntry>): Array<string> {
+  const declared = attributes[TWIG_KEY_ORDER_PROPERTY];
+
+  const ordered = Array.isArray(declared)
+    ? declared.filter((key) => typeof key === 'string' && key !== TWIG_KEY_ORDER_PROPERTY && hasOwn(attributes, key))
+    : [];
+
+  // Whatever `_keys` does not account for — because it is absent, stale, or not
+  // an array at all — keeps its own enumeration order behind the ordered keys.
+  // No attribute is ever dropped for being unlisted.
+  const remaining = Object.keys(attributes)
+    .filter((key) => key !== TWIG_KEY_ORDER_PROPERTY && ordered.indexOf(key) === -1);
+
+  return ordered.concat(remaining);
+}
+
+/**
+ * Creates an attribute collection from a Twig mapping.
+ *
+ * This is the Twig-facing entry point, equivalent to Drupal's
+ * `create_attribute()`. Register it with twig.js to keep `_keys` out of the
+ * rendered markup and to render attributes in template order:
+ *
+ * ```js
+ * Twig.extendFunction('create_attribute', createAttribute);
+ * ```
+ *
+ * @param {?DrupalAttributeInit} attributes
+ *   (optional) Key-value pairs to convert into HTML attributes.
+ *
+ * @returns {DrupalAttribute}
+ *   An attribute collection holding the given attributes.
+ */
+export function createAttribute(attributes?: DrupalAttributeInit | null): DrupalAttribute {
+  if (attributes === null || attributes === undefined) {
+    return new DrupalAttribute();
+  }
+
+  // Maps and entry arrays are already ordered key/value pairs and never carry
+  // Twig.js bookkeeping, so they go straight to the constructor.
+  if (isEntryIterable(attributes)) {
+    return new DrupalAttribute(attributes);
+  }
+
+  return new DrupalAttribute(
+    orderedKeys(attributes).map((key): [string, DrupalAttributeEntry] => [key, attributes[key]]),
+  );
 }
 
 // Provide a default export for compatibility with legacy consumers and tooling.
