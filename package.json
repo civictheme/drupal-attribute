@@ -1,6 +1,6 @@
 {
   "name": "@civictheme/drupal-attribute",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Emulate Drupal Attribute in JavaScript.",
   "keywords": [
     "drupal"
