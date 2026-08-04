@@ -20,5 +20,8 @@ npm install drupal-attribute
 
 Apache-2.0 © [Eric MORAND](https://gitlab.com/nightlycommit)
 
+Files from the original project have been modified by CivicTheme contributors
+since 2025. See the commit history for the full list of changes.
+
 [npm-image]: https://badge.fury.io/js/drupal-attribute.svg
 [npm-url]: https://npmjs.org/package/drupal-attribute
