@@ -13,7 +13,7 @@ If you're wondering, you probably don't need this.
 ## Installation
 
 ```bash
-npm install drupal-attribute
+npm install @civictheme/drupal-attribute
 ```
 
 ## License
@@ -23,5 +23,5 @@ Apache-2.0 © [Eric MORAND](https://gitlab.com/nightlycommit)
 Files from the original project have been modified by CivicTheme contributors
 since 2025. See the commit history for the full list of changes.
 
-[npm-image]: https://badge.fury.io/js/drupal-attribute.svg
-[npm-url]: https://npmjs.org/package/drupal-attribute
+[npm-image]: https://badge.fury.io/js/@civictheme%2Fdrupal-attribute.svg
+[npm-url]: https://npmjs.org/package/@civictheme/drupal-attribute

@@ -1,0 +1,88 @@
+name: Release package
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-level:
+        description: 'Release level (one of): patch, minor or major'
+        required: true
+        default: 'patch'
+
+permissions:
+  contents: write
+
+jobs:
+  release-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GHA_BOT_PAT }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+
+      # `prepare` runs `build:main`, so the main artifact is built during install.
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - name: Verify package contents
+        run: |
+          npm pack --quiet
+          tarball=$(ls -t civictheme-drupal-attribute-*.tgz | head -1)
+
+          failed=0
+          for file in \
+            package/src/main/target/index.mjs \
+            package/src/main/target/index.cjs \
+            package/src/main/target/index.d.mts \
+            package/LICENSE
+          do
+            if tar -tzf "$tarball" | grep -qx "$file"; then
+              echo "✅ $file"
+            else
+              echo "❌ $file (MISSING)"
+              failed=1
+            fi
+          done
+
+          rm -f "$tarball"
+
+          if [ $failed -eq 1 ]; then
+            echo "❌ Package verification failed — check that \`prepare\` ran."
+            exit 1
+          fi
+
+      - name: Configure git
+        run: |
+          git config --global user.email "${GITHUB_ACTOR_ID}+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions release workflow"
+
+      - name: Bump release version
+        run: echo "NEW_VERSION=$(npm --no-git-tag-version version ${RELEASE_LEVEL})" >> ${GITHUB_ENV}
+        env:
+          RELEASE_LEVEL: ${{ github.event.inputs.release-level }}
+
+      - name: Commit package.json changes and create tag
+        run: |
+          git add package.json
+          git commit -m "Released version ${{ env.NEW_VERSION }}."
+          git tag ${{ env.NEW_VERSION }}
+
+      # Add `--provenance` here once the repository is public — npm cannot attest
+      # provenance for a package built in a private repository. Enabling it also
+      # needs `id-token: write` in the job permissions.
+      - name: Publish package
+        run: npm publish --verbose --access public --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_BOT_PAT }}
+
+      - name: Push changes to repository
+        run: git push origin && git push --tags

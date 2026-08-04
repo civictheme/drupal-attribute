@@ -8,7 +8,7 @@ This is not [drupal-attribute](https://npmjs.org/package/drupal-attribute). This
 
 ## Prerequisites
 
-* Node.js 16 and above
+* Node.js 20 and above
 * [Rollup](https://www.npmjs.com/package/rollup) installed globally
 
 It is also recommended to have the following tools installed globally to ease the writing of tests and the tracking of the code coverage:
@@ -103,5 +103,5 @@ Apache-2.0 © [Eric MORAND](https://gitlab.com/nightlycommit)
 Files from the original project have been modified by CivicTheme contributors
 since 2025. See the commit history for the full list of changes.
 
-[npm-image]: https://badge.fury.io/js/drupal-attribute.svg
-[npm-url]: https://npmjs.org/package/drupal-attribute
+[npm-image]: https://badge.fury.io/js/@civictheme%2Fdrupal-attribute.svg
+[npm-url]: https://npmjs.org/package/@civictheme/drupal-attribute
