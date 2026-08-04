@@ -56,13 +56,13 @@ tape('constructor', function (test) {
     test.end();
   });
 
-  test.test('should not read the twig.js _keys property', function (test) {
-    // The constructor is the generic entry point and has no twig.js knowledge;
-    // `_keys` handling belongs to createAttribute(). Documented so the split
-    // stays deliberate.
+  test.test('should read the twig.js _keys property', function (test) {
+    // 2.0.0 handled `_keys` in createAttribute() alone and leaked it for every
+    // consumer that builds a collection directly. The constructor consumes it.
     const attribute = new DrupalAttribute({foo: 'bar', _keys: ['foo']});
 
-    test.equal(attribute.has('_keys'), true);
+    test.equal(attribute.has('_keys'), false);
+    test.equal(attribute.toString(), ' foo="bar"');
     test.end();
   });
 });
