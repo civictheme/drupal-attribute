@@ -13,6 +13,34 @@ function escapeHtml(value: string): string {
   return value.replace(HTML_ESCAPE_RE, (ch) => HTML_ESCAPE_MAP[ch]);
 }
 
+// PHP array_filter falsiness, as AttributeArray::__toString applies it.
+function isPhpEmpty(value: unknown): boolean {
+  return value === null || value === undefined || value === false || value === ''
+    || value === 0 || value === '0' || (Array.isArray(value) && value.length === 0);
+}
+
+function renderArrayValue(value: Array<unknown>): string {
+  const seen = new Set<string>();
+  const parts: Array<string> = [];
+
+  for (const item of value) {
+    if (isPhpEmpty(item)) {
+      continue;
+    }
+
+    const representation = String(item);
+
+    if (seen.has(representation)) {
+      continue;
+    }
+
+    seen.add(representation);
+    parts.push(escapeHtml(representation));
+  }
+
+  return parts.join(' ');
+}
+
 // `number` because PHP renders 0 as key="0". The nested record is open: merge()
 // deep-merges arbitrary consumer objects.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,7 +84,7 @@ function orderedKeys(attributes: Record<string, DrupalAttributeEntry>): Array<st
 export interface DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   addClass(...args: Array<DrupalAttributeEntry | Map<string, string>>): this;
   hasClass(key: string): boolean;
-  removeClass(value: string | Array<string>): this;
+  removeClass(...args: Array<string | Array<string>>): this;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -91,7 +119,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     return results;
   }
 
-  addClass(...values: Array<string | Array<string> | Map<string, string> | null | undefined>) {
+  addClass(...values: Array<DrupalAttributeEntry | Map<string, string>>) {
     let classes = this.getClasses();
 
     if (classes === null) {
@@ -102,17 +130,21 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
 
     values.forEach((value) => {
       if (value !== null && value !== undefined) {
+        let items: Array<unknown>;
+
         // Handle Maps by converting to array of value.
-        if (typeof value === "string") {
-          value = [value];
-        }
-
         if (value instanceof Map) {
-          value = Array.from(value.values());
+          items = Array.from(value.values());
+        }
+        else if (Array.isArray(value)) {
+          items = value;
+        }
+        else {
+          items = [value];
         }
 
-        value.forEach(function (d) {
-          if (d === null || d === undefined || d === '') {
+        items.forEach(function (d) {
+          if (isPhpEmpty(d)) {
             return;
           }
           // PHP appends without dedup; array_unique runs at render time.
@@ -124,11 +156,11 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     return this;
   }
 
-  removeClass(value: string | Array<string>): this {
+  removeClass(...args: Array<string | Array<string>>): this {
     const classes = this.getClasses();
 
     if (classes !== null) {
-      const toRemove = Array.isArray(value) ? value : [value];
+      const toRemove = args.flatMap((arg) => Array.isArray(arg) ? arg : [arg]);
 
       // PHP array_diff + array_values: all matches removed, then re-indexed.
       this.set('class', classes.filter((c) => !toRemove.includes(c)));
@@ -163,7 +195,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
 
     // PHP replaces with a fresh AttributeArray. Filter and dedup at render.
     if (key === 'class') {
-      this.set('class', Array.isArray(value) ? value.slice() : [value]);
+      this.set('class', Array.isArray(value) ? value.slice() : [String(value)]);
       return this;
     }
 
@@ -172,10 +204,52 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     return this;
   }
 
-  removeAttribute(key: string) {
-    this.delete(key);
+  removeAttribute(...args: Array<string | Array<string>>) {
+    for (const arg of args) {
+      for (const key of Array.isArray(arg) ? arg : [arg]) {
+        this.delete(key);
+      }
+    }
 
     return this;
+  }
+
+  offsetGet(name: string): DrupalAttributeEntry {
+    if (this.has(name)) {
+      return this.get(name);
+    }
+
+    // PHP initializes 'class' on read, returning the live stored array.
+    if (name === 'class') {
+      const classes: Array<string> = [];
+      this.set('class', classes);
+      return classes;
+    }
+
+    return null;
+  }
+
+  offsetSet(name: string, value: DrupalAttributeEntry): void {
+    this.setAttribute(name, value);
+  }
+
+  offsetExists(name: string): boolean {
+    return this.has(name);
+  }
+
+  offsetUnset(name: string): void {
+    this.delete(name);
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.has(name);
+  }
+
+  // The method PHP Twig resolves for `attributes.class`; twig.js does the same.
+  getClass(): string {
+    const value = this.offsetGet('class');
+
+    return Array.isArray(value) ? renderArrayValue(value) : '';
   }
 
   toString(): string {
@@ -201,20 +275,14 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
       }
 
       if (Array.isArray(value)) {
-
-        // PHP AttributeArray: drop empties, dedup, escape, join.
-        const filtered = value
-          .filter(v => v !== null && v !== undefined && v !== '')
-          .map(String);
-
-        const unique = [...new Set(filtered)];
+        const rendered = renderArrayValue(value);
 
         // Skip empty arrays.
-        if (unique.length === 0) {
+        if (rendered === '') {
           continue;
         }
 
-        components.push(`${escapeHtml(key)}="${unique.map(escapeHtml).join(' ')}"`);
+        components.push(`${escapeHtml(key)}="${rendered}"`);
         continue;
       }
 
