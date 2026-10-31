@@ -13,20 +13,32 @@ function escapeHtml(value: string): string {
   return value.replace(HTML_ESCAPE_RE, (ch) => HTML_ESCAPE_MAP[ch]);
 }
 
-// PHP AttributeArray::__toString: drop empties, dedup, escape, join. Unlike
-// PHP, rendering never mutates the stored array. Null means skip the attribute.
-function renderArrayValue(value: Array<unknown>): string | null {
-  const filtered = value
-    .filter((v) => v !== null && v !== undefined && v !== '')
-    .map(String);
+// PHP array_filter falsiness, as AttributeArray::__toString applies it.
+function isPhpEmpty(value: unknown): boolean {
+  return value === null || value === undefined || value === false || value === ''
+    || value === 0 || value === '0' || (Array.isArray(value) && value.length === 0);
+}
 
-  const unique = [...new Set(filtered)];
+function renderArrayValue(value: Array<unknown>): string {
+  const seen = new Set<string>();
+  const parts: Array<string> = [];
 
-  if (unique.length === 0) {
-    return null;
+  for (const item of value) {
+    if (isPhpEmpty(item)) {
+      continue;
+    }
+
+    const representation = String(item);
+
+    if (seen.has(representation)) {
+      continue;
+    }
+
+    seen.add(representation);
+    parts.push(escapeHtml(representation));
   }
 
-  return unique.map(escapeHtml).join(' ');
+  return parts.join(' ');
 }
 
 // `number` because PHP renders 0 as key="0". The nested record is open: merge()
@@ -128,16 +140,11 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
           items = value;
         }
         else {
-          // PHP casts each argument with (array) $arg, so scalars wrap.
           items = [value];
         }
 
         items.forEach(function (d) {
-          // PHP stores these raw but array_filter drops them at render; we
-          // filter on the way in because entries are stringified here. The
-          // String() check also drops values that stringify empty, such as
-          // an empty array, which PHP's render-time filter would discard.
-          if (d === null || d === undefined || d === false || String(d) === '') {
+          if (isPhpEmpty(d)) {
             return;
           }
           // PHP appends without dedup; array_unique runs at render time.
@@ -153,7 +160,6 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     const classes = this.getClasses();
 
     if (classes !== null) {
-      // PHP casts each argument with (array) $arg, so strings and arrays mix.
       const toRemove = args.flatMap((arg) => Array.isArray(arg) ? arg : [arg]);
 
       // PHP array_diff + array_values: all matches removed, then re-indexed.
@@ -187,8 +193,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
       return this;
     }
 
-    // PHP replaces with a fresh AttributeArray, casting a scalar to a
-    // single-element string array. Filter and dedup at render.
+    // PHP replaces with a fresh AttributeArray. Filter and dedup at render.
     if (key === 'class') {
       this.set('class', Array.isArray(value) ? value.slice() : [String(value)]);
       return this;
@@ -200,7 +205,6 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
   }
 
   removeAttribute(...args: Array<string | Array<string>>) {
-    // PHP accepts names and arrays of names interchangeably.
     for (const arg of args) {
       for (const key of Array.isArray(arg) ? arg : [arg]) {
         this.delete(key);
@@ -210,20 +214,12 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     return this;
   }
 
-  /**
-   * Returns an attribute's stored value, as PHP ArrayAccess reads do.
-   *
-   * Mirrors Attribute::offsetGet, the method behind `$attributes['name']` and
-   * Twig's `attributes['name']` subscript: the stored value when set, null
-   * otherwise. Reading 'class' initializes it to an empty array first and
-   * returns the live stored array, so appends mutate storage as PHP's
-   * `$attributes['class'][] = 'x'` does.
-   */
   offsetGet(name: string): DrupalAttributeEntry {
     if (this.has(name)) {
       return this.get(name);
     }
 
+    // PHP initializes 'class' on read, returning the live stored array.
     if (name === 'class') {
       const classes: Array<string> = [];
       this.set('class', classes);
@@ -233,51 +229,27 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
     return null;
   }
 
-  /**
-   * Sets an attribute, as PHP ArrayAccess writes do.
-   *
-   * Mirrors Attribute::offsetSet (`$attributes['name'] = $value`): same value
-   * handling as setAttribute, without the fluent return.
-   */
   offsetSet(name: string, value: DrupalAttributeEntry): void {
     this.setAttribute(name, value);
   }
 
-  /**
-   * Returns whether an attribute is set, as PHP `isset($attributes['name'])`.
-   */
   offsetExists(name: string): boolean {
     return this.has(name);
   }
 
-  /**
-   * Removes an attribute, as PHP `unset($attributes['name'])`.
-   */
   offsetUnset(name: string): void {
     this.delete(name);
   }
 
-  /**
-   * Returns whether an attribute exists, mirroring Attribute::hasAttribute.
-   */
   hasAttribute(name: string): boolean {
     return this.has(name);
   }
 
-  /**
-   * Returns the rendered class list for Twig's `attributes.class`.
-   *
-   * PHP's Attribute::getClass exists so Twig resolves `attributes.class` to a
-   * printable value; twig.js resolves `.class` through this method the same
-   * way. PHP returns the AttributeArray whose __toString renders the list, so
-   * the JS analog returns that rendered string directly: filtered, deduped,
-   * escaped and space-joined. Use getClasses() or offsetGet('class') for the
-   * raw stored array.
-   */
+  // The method PHP Twig resolves for `attributes.class`; twig.js does the same.
   getClass(): string {
     const value = this.offsetGet('class');
 
-    return Array.isArray(value) ? renderArrayValue(value) ?? '' : '';
+    return Array.isArray(value) ? renderArrayValue(value) : '';
   }
 
   toString(): string {
@@ -306,7 +278,7 @@ export class DrupalAttribute extends Map<string, DrupalAttributeEntry> {
         const rendered = renderArrayValue(value);
 
         // Skip empty arrays.
-        if (rendered === null) {
+        if (rendered === '') {
           continue;
         }
 

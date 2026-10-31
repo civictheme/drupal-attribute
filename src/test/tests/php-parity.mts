@@ -195,6 +195,24 @@ tape('PHP Drupal Attribute parity', function(test) {
     test.end();
   });
 
+  test.test('array values drop PHP-falsy members at render, as array_filter does', function(test) {
+    // PHP: (string) new Attribute(['class' => ['0', 'btn', '']]) === ' class="btn"'
+    // AttributeArray::__toString runs array_filter without a callback, which
+    // removes every PHP-falsy member — including 0 and '0'.
+    const attr = new DrupalAttribute();
+    attr.setAttribute('class', ['0', 'btn', '']);
+
+    test.equal(attr.toString(), ' class="btn"');
+
+    attr.setAttribute('data-list', [0, 'x']);
+    test.equal(attr.toString(), ' class="btn" data-list="x"');
+
+    // Scalar zero is unaffected: it renders as key="0" (see above).
+    attr.setAttribute('tabindex', 0);
+    test.equal(attr.toString(), ' class="btn" data-list="x" tabindex="0"');
+    test.end();
+  });
+
   test.test('addClass with a single empty string is a no-op', function(test) {
     // PHP: $attr->addClass(''); $attr->__toString() === '' — the empty
     // string is filtered before being added to the class list.

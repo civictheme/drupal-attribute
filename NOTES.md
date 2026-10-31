@@ -118,9 +118,9 @@ print (string) (new Attribute(['x' => NULL, 'y' => FALSE])); // ''
 | Numeric `0` renders as `key="0"` | `AttributeString::__toString` (numeric coerced to string) | Falsy-but-not-`false` must render |
 | HTML escaping on values | `AttributeValueBase::render` line ~55 + `AttributeString::__toString` line ~28 | `Html::escape()` on every value — escapes `&"<>` |
 | HTML escaping on names | `AttributeValueBase::render` line ~55 | Names escaped too |
-| Class array joined with space | `AttributeArray::__toString` lines ~74-78 | Empty values filtered, then `implode(' ', ...)` |
+| Class array joined with space | `AttributeArray::__toString` lines ~74-78 | PHP-falsy members filtered (`array_filter` with no callback, so `0` and `'0'` drop too), then `implode(' ', ...)` |
 | Class array deduplicated at render | `AttributeArray::__toString` line ~76 | `array_unique` is called inside `__toString`, not at storage time |
-| `addClass` filters null/false/empty | `Attribute::addClass` lines ~186-208 | Filters before adding |
+| `addClass` filters null/false/empty | `Attribute::addClass` lines ~186-208 | Filters PHP-falsy values before adding, since entries are stringified at add time; PHP stores them raw and filters at render |
 | `removeClass` removes ALL matches | `Attribute::removeClass` line ~286 | Uses `array_diff` + `array_values` to reset indices |
 | `addClass` defers dedup to render | `AttributeArray::__toString` line ~76 (`array_unique`) | Appends raw; `array_unique` at render |
 | Merge: arrays deep-merge, scalars overwrite | `Attribute::merge` lines ~399-404 | Uses `NestedArray::mergeDeep` |
@@ -213,14 +213,14 @@ subtest in `core-attribute-test.mts` locks both halves in.
 
 `AttributeArray::__toString` runs `array_unique(array_filter($this->value))`
 **and assigns the result back**, so printing an attribute in PHP permanently
-dedupes and strips falsy members from storage. Rendering here is pure. The
-equivalent cleanup happens on the way in instead: `addClass` skips `null`,
-`undefined`, `false`, and anything that stringifies empty (including `''` and
-empty arrays). Two consequences: duplicates stay in storage until render (as
-documented in the catalog), and PHP-falsy class members that arrive via
-`setAttribute('class', [...])` rather than `addClass` — `0` and `'0'` — render
-here but are dropped by PHP's `array_filter`. A class literally named `0` is
-the only case that differs.
+dedupes and strips falsy members from storage. Rendering here applies the
+same filter — PHP falsiness, so `0` and `'0'` drop too — and the same dedup,
+making the output byte-identical, but it never writes the cleaned list back.
+`addClass` additionally applies the filter on the way in, since entries are
+stringified as they are added. The difference is observable only by reading
+storage after a render: duplicates and falsy members that arrive via
+`setAttribute('class', [...])` stay stored here, where PHP would have
+scrubbed them as a side effect of printing.
 
 ### Safe-markup objects take the plain-text path
 
