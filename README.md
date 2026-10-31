@@ -119,6 +119,24 @@ The version can be provided by populating the `VERSION` environment variable acc
 VERSION=1.2.3 npm run build:main
 ```
 
+### Releasing
+
+npm publishing requires an interactive OTP now that tokens no longer bypass
+2FA, so releases run from a maintainer machine rather than CI:
+
+```shell
+git checkout main
+git pull
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm version minor -m "Released version v%s."   # or patch / major
+npm publish --access public --tag latest
+git push origin main --follow-tags
+gh release create vX.Y.Z --title vX.Y.Z --notes-file RELEASE-NOTES-X.Y.Z.md
+```
+
 ### Writing and executing tests
 
 Assuming one want to execute the test located in `src/test/foo/bar.ts`, one would run:
