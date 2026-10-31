@@ -41,6 +41,12 @@ directly.
 | `core/tests/Drupal/Tests/Core/Template/AttributeTest.php` | 552 | Behaviour of the Attribute class itself (public API, escaping, iteration, merge) |
 | `core/tests/Drupal/Tests/Core/Template/AttributeHelperTest.php` | — | The helper utilities — relevant if you ever port `AttributeHelper` |
 
+`src/test/tests/core-attribute-test.mts` is a one-for-one port of
+`AttributeTest.php`: every test method is represented, with PHP array-access
+syntax translated to the `offsetGet`/`offsetSet`/`offsetExists`/`offsetUnset`
+methods and divergences noted inline. The PHP `Markup::create()` safe-object
+cases are the only omission — see the known gaps below.
+
 ### Upstream URLs (Drupal 11.x branch — line numbers may shift)
 
 - https://git.drupalcode.org/project/drupal/-/blob/11.x/core/lib/Drupal/Core/Template/Attribute.php
@@ -120,6 +126,14 @@ print (string) (new Attribute(['x' => NULL, 'y' => FALSE])); // ''
 | Merge: arrays deep-merge, scalars overwrite | `Attribute::merge` lines ~399-404 | Uses `NestedArray::mergeDeep` |
 | Iteration order = insertion order | `Attribute::getIterator` lines ~370-371 | Uses `ArrayIterator` over storage |
 | Constructor applies `setAttribute` rules | `Attribute::__construct` lines 108-112 | Loops the input calling `offsetSet()`, so `class` is forced to an array on constructor input too |
+| `offsetGet` returns the stored value, null when absent | `Attribute::offsetGet` lines ~97-109 | Twig's `attributes['name']` subscript; reading `class` initializes it to an empty array and returns the live reference, so appends mutate storage |
+| `offsetSet` / `offsetExists` / `offsetUnset` | `Attribute.php` ArrayAccess methods | `$attributes['x'] = $v`, `isset()`, `unset()`; JS delegates to `setAttribute`, `has`, `delete` |
+| `hasAttribute` reports presence | `Attribute::hasAttribute` lines ~236-238 | Boolean, no auto-initialization side effect |
+| `attributes.class` in Twig resolves `getClass()` | `Attribute::getClass` lines ~302-304 | PHP returns the `AttributeArray`, whose `__toString` renders the list; the JS method returns that rendered string (filtered, deduped, escaped, space-joined). twig.js resolves `.class` through the method the same way PHP Twig does |
+| `removeAttribute` takes names and arrays of names | `Attribute::removeAttribute` lines ~248-262 | Variadic, arrays flattened |
+| `removeClass` takes classes and arrays of classes | `Attribute::removeClass` lines ~272-290 | Variadic, arrays flattened via the `(array) $arg` cast |
+| `addClass` wraps scalar arguments | `Attribute::addClass` lines ~186-209 | `(array) $arg` casts any scalar; JS wraps non-array, non-Map values the same way |
+| `setAttribute('class', scalar)` casts to string | `Attribute::createAttributeValue` lines ~138-141 | `[(string) $value]`, so Stringable objects become their string form at storage time |
 | Render order = template order | `Attribute::__construct` lines 108-112 + `getIterator` lines 377-381 | PHP arrays preserve authored key order; `createAttribute()` has to reconstruct it (see below) |
 
 ---
@@ -186,5 +200,35 @@ HTML attribute name — a name cannot start with a digit — so this is recorded
 rather than fixed. `merge()` does preserve insertion order for string keys,
 which is the behavior `Attribute::merge` has for every name that can legally
 reach it.
+
+### `false` values are dropped at storage, not kept as boolean wrappers
+
+PHP stores `FALSE` as an `AttributeBoolean(FALSE)` whose `value()` returns
+`FALSE` and which renders nothing. `setAttribute(key, false)` here deletes the
+key instead, so `offsetGet` returns `null` where PHP returns the wrapper.
+Rendered output is identical; only the storage read differs. The constructor
+subtest in `core-attribute-test.mts` locks both halves in.
+
+### Rendering never mutates storage; PHP's does
+
+`AttributeArray::__toString` runs `array_unique(array_filter($this->value))`
+**and assigns the result back**, so printing an attribute in PHP permanently
+dedupes and strips falsy members from storage. Rendering here is pure. The
+equivalent cleanup happens on the way in instead: `addClass` skips `null`,
+`undefined`, `false`, and anything that stringifies empty (including `''` and
+empty arrays). Two consequences: duplicates stay in storage until render (as
+documented in the catalog), and PHP-falsy class members that arrive via
+`setAttribute('class', [...])` rather than `addClass` — `0` and `'0'` — render
+here but are dropped by PHP's `array_filter`. A class literally named `0` is
+the only case that differs.
+
+### Safe-markup objects take the plain-text path
+
+PHP detects `MarkupInterface`/`Stringable` values and runs them through
+`PlainTextOutput::renderFromHtml()`, which strips tags from strings already
+marked safe. There is no JS markup-safety system; any object is stringified
+with `String(value)` and escaped like every other value. The `Markup::create()`
+XSS cases in `AttributeTest.php` are therefore not ported — their non-safe
+twins, which exercise plain-string escaping, are.
 
 ---

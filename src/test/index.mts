@@ -3,6 +3,7 @@ import defaultExport, {DrupalAttribute} from "../main/index.mjs";
 
 import "./tests/add-class.mjs";
 import "./tests/constructor.mjs";
+import "./tests/core-attribute-test.mjs";
 import "./tests/create-attribute.mjs";
 import "./tests/escaping.mjs";
 import "./tests/has-class.mjs";
